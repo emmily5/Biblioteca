@@ -1,0 +1,17 @@
+name = "biblioteca-secoes"
+main = "src/worker.js"
+compatibility_date = "2026-06-10"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "biblioteca-secoes-db"
+database_id = "e0871c44-e188-47f9-ae10-159d6b2f9f09"
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "biblioteca-secoes-images"

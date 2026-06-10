@@ -2,13 +2,17 @@
   "name": "biblioteca-de-secoes",
   "version": "1.0.0",
   "description": "Biblioteca de seções reutilizáveis (HTML/CSS/JS) compartilhada na rede local",
-  "main": "server.js",
+  "main": "src/worker.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "wrangler dev",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "d1:migrate:local": "wrangler d1 migrations apply biblioteca-secoes-db --local",
+    "d1:migrate:remote": "wrangler d1 migrations apply biblioteca-secoes-db --remote",
     "build:css": "npx sass style.scss public/assets/css/style.css --style=compressed --no-source-map",
     "watch:css": "npx sass --watch style.scss public/assets/css/style.css"
   },
-  "dependencies": {
-    "express": "^4.19.2"
+  "devDependencies": {
+    "wrangler": "^4.0.0"
   }
 }

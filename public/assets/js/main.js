@@ -7,6 +7,9 @@ let activeCatId = null;
 let activeCompId = null;
 let editingCompId = null;
 let pendingImgData = null;
+let pendingPreviewUrl = null;
+const MAX_SOURCE_IMAGE_SIZE = 25 * 1024 * 1024;
+const WEBP_QUALITY = 0.86;
 
 // helper genérico de chamada à API
 async function api(path, opts){
@@ -21,6 +24,18 @@ async function api(path, opts){
   }
   // DELETE / respostas sem corpo
   if(res.status === 204) return null;
+  return res.json();
+}
+
+async function uploadImage(file){
+  const form = new FormData();
+  form.append('file', file, file.name || 'screenshot.webp');
+  const res = await fetch('/api/images', { method:'POST', body:form });
+  if(!res.ok){
+    let msg = 'Erro ao enviar imagem';
+    try{ const j = await res.json(); if(j && j.error) msg = j.error; }catch(e){}
+    throw new Error(msg);
+  }
   return res.json();
 }
 
@@ -246,6 +261,7 @@ let currentFormTab='html';
 function openCompModal(id){
   editingCompId=id||null;
   pendingImgData=null;
+  clearPendingPreviewUrl();
   const comp=id?db.components.find(c=>c.id===id):null;
 
   document.getElementById('compModalTitle').textContent=comp?'Editar seção':'Nova seção';
@@ -256,7 +272,7 @@ function openCompModal(id){
   document.getElementById('cJs').value=comp?comp.js||'':'';
 
   const prev=document.getElementById('imgPreview');
-  if(comp&&comp.img){ prev.src=comp.img; prev.style.display='block'; pendingImgData=comp.img; }
+  if(comp&&comp.img){ prev.src=comp.img; prev.style.display='block'; }
   else { prev.style.display='none'; prev.src=''; }
 
   switchFormTab('html', document.querySelector('.code-tab-btn'));
@@ -264,7 +280,10 @@ function openCompModal(id){
   setTimeout(()=>document.getElementById('cName').focus(),80);
 }
 
-function closeCompModal(){ document.getElementById('compOverlay').classList.remove('open'); }
+function closeCompModal(){
+  document.getElementById('compOverlay').classList.remove('open');
+  document.getElementById('imgInput').value='';
+}
 
 function switchFormTab(type, btn){
   currentFormTab=type;
@@ -275,17 +294,59 @@ function switchFormTab(type, btn){
   });
 }
 
-function handleImg(input){
+async function handleImg(input){
   const file=input.files[0];
   if(!file)return;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    pendingImgData=e.target.result;
+
+  try{
+    const webpFile=await prepareWebpImage(file);
+    pendingImgData={ file:webpFile };
     const prev=document.getElementById('imgPreview');
-    prev.src=pendingImgData;
+    clearPendingPreviewUrl();
+    pendingPreviewUrl=URL.createObjectURL(webpFile);
+    prev.src=pendingPreviewUrl;
     prev.style.display='block';
-  };
-  reader.readAsDataURL(file);
+    toast(file.type==='image/webp'?'Imagem WebP pronta.':'Imagem convertida para WebP.');
+  }catch(e){
+    input.value='';
+    toast(e.message||'Imagem invalida.');
+  }
+}
+
+async function prepareWebpImage(file){
+  if(!file.type.startsWith('image/')){
+    throw new Error('Escolha um arquivo de imagem.');
+  }
+  if(file.size > MAX_SOURCE_IMAGE_SIZE){
+    throw new Error('Imagem maior que 25 MB.');
+  }
+  if(file.type === 'image/webp'){
+    return file;
+  }
+  if(!['image/png','image/jpeg','image/jpg'].includes(file.type)){
+    throw new Error('Use PNG, JPG, JPEG ou WEBP.');
+  }
+
+  const bitmap=await createImageBitmap(file);
+  const canvas=document.createElement('canvas');
+  canvas.width=bitmap.width;
+  canvas.height=bitmap.height;
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(bitmap,0,0);
+  if(bitmap.close) bitmap.close();
+
+  const blob=await new Promise((resolve,reject)=>{
+    canvas.toBlob(result=>result?resolve(result):reject(new Error('Nao foi possivel converter a imagem.')), 'image/webp', WEBP_QUALITY);
+  });
+  const name=(file.name||'screenshot').replace(/\.[^.]+$/,'')+'.webp';
+  return new File([blob], name, { type:'image/webp' });
+}
+
+function clearPendingPreviewUrl(){
+  if(pendingPreviewUrl){
+    URL.revokeObjectURL(pendingPreviewUrl);
+    pendingPreviewUrl=null;
+  }
 }
 
 async function saveComp(){
@@ -299,14 +360,21 @@ async function saveComp(){
   if(!activeCatId){alert('Selecione uma categoria primeiro.');return;}
 
   try{
+    let uploadedImgUrl=null;
+    if(pendingImgData && pendingImgData.file){
+      toast('Enviando imagem...');
+      const uploaded=await uploadImage(pendingImgData.file);
+      uploadedImgUrl=uploaded.url;
+    }
+
     if(editingCompId){
       const payload={name,desc,html,css,js};
-      if(pendingImgData!==null) payload.img=pendingImgData;
+      if(uploadedImgUrl!==null) payload.img=uploadedImgUrl;
       await api('/components/'+editingCompId, { method:'PUT', body:JSON.stringify(payload) });
       toast('Seção atualizada!');
     } else {
       await api('/components', { method:'POST', body:JSON.stringify({
-        catId:activeCatId, name, desc, html, css, js, img:pendingImgData||null
+        catId:activeCatId, name, desc, html, css, js, img:uploadedImgUrl
       }) });
       toast('Seção adicionada!');
     }
