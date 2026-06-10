@@ -91,7 +91,7 @@ body {
    SIDEBAR — gradiente como identidade visual
    ══════════════════════════════════════════════════ */
 .sidebar {
-  width: 240px;
+  width: 300px;
   flex-shrink: 0;
   background: var(--brand-gradient);
   border-right: none;
@@ -150,7 +150,7 @@ body {
 
 .logo-text strong {
   display: block;
-  font-size: 13.5px;
+  font-size: 16px;
   font-weight: 700;
   color: #ffffff;
   letter-spacing: -0.2px;
@@ -158,7 +158,7 @@ body {
 
 .logo-text span {
   display: block;
-  font-size: 10.5px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.5);
   margin-top: 1px;
 }
@@ -166,7 +166,7 @@ body {
 /* Nav label */
 .sidebar-section {
   padding: 18px 18px 6px;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.35);
   text-transform: uppercase;
@@ -299,7 +299,7 @@ body {
    MAIN
    ══════════════════════════════════════════════════ */
 .main {
-  margin-left: 240px;
+  margin-left: 300px;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -443,16 +443,16 @@ body {
 }
 
 .empty-state h3 {
-  font-size: 16px;
+  font-size: 36px; 
   font-weight: 600;
   color: var(--text);
   margin-bottom: 8px;
 }
 
 .empty-state p {
-  font-size: 13px;
+  font-size: 23px;
   color: var(--text3);
-  max-width: 280px;
+  max-width: 380px;
   line-height: 1.7;
 }
 
