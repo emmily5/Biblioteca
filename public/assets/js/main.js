@@ -109,19 +109,161 @@ function selectCat(id){
 // ══════════════════════════════════════════
 // CARDS
 // ══════════════════════════════════════════
+function formatCount(value, singular, plural){
+  return value + ' ' + (value === 1 ? singular : plural);
+}
+
+function categorySectionCount(catId){
+  return db.components.filter(c=>c.catId===catId).length;
+}
+
+function sortedCategoryStats(){
+  return db.categories.map(cat=>({
+    cat,
+    count: categorySectionCount(cat.id),
+  })).sort((a,b)=>b.count-a.count || (a.cat.name||'').localeCompare(b.cat.name||''));
+}
+
+function latestComponents(limit){
+  return [...db.components]
+    .sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0))
+    .slice(0,limit);
+}
+
+function categoryById(id){
+  return db.categories.find(c=>c.id===id) || null;
+}
+
+function componentThumb(comp, compact){
+  if(comp.img){
+    return `<img class="thumb-img" src="${comp.img}" alt="${esc(comp.name)}">`;
+  }
+  return `<div class="no-preview ${compact?'compact':''}">
+    <svg width="${compact?'18':'24'}" height="${compact?'18':'24'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    ${compact?'':'Sem imagem'}
+  </div>`;
+}
+
+function renderHome(main){
+  const totalCategories=db.categories.length;
+  const totalComponents=db.components.length;
+  const categoryStats=sortedCategoryStats();
+  const topCategory=categoryStats.find(item=>item.count>0);
+  const latest=latestComponents(6);
+
+  document.getElementById('pageTitle').textContent='Biblioteca de Seções';
+  document.getElementById('pageCount').textContent=`${formatCount(totalCategories,'categoria','categorias')} · ${formatCount(totalComponents,'seção','seções')}`;
+
+  if(!totalCategories){
+    main.innerHTML=`<div class="home-dashboard">
+      <section class="home-hero">
+        <div>
+          <span class="home-kicker">Visão geral</span>
+          <h2>Biblioteca de Seções</h2>
+          <p>Crie a primeira categoria para começar a organizar seus blocos reutilizáveis.</p>
+        </div>
+        <button class="btn-primary" onclick="openCatModal()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nova categoria
+        </button>
+      </section>
+      <section class="home-empty-panel">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <h3>Nenhuma categoria ainda</h3>
+        <p>A biblioteca fica mais útil quando as seções são separadas por uso, como Hero, Garantia, FAQ ou Rodapé.</p>
+      </section>
+    </div>`;
+    return;
+  }
+
+  const recentHtml=latest.length ? latest.map(comp=>{
+    const cat=categoryById(comp.catId);
+    const badgeStyle=cat&&cat.bg?`background:${cat.bg};color:${cat.color};`:'background:#f0ede8;color:#6b6757;';
+    return `<button class="home-recent-item" onclick="openDetail('${comp.id}')">
+      <span class="home-recent-thumb">${componentThumb(comp,true)}</span>
+      <span class="home-recent-info">
+        <strong>${esc(comp.name)}</strong>
+        <span>${comp.desc?esc(comp.desc):'Sem descrição'}</span>
+      </span>
+      <span class="cat-badge" style="${badgeStyle}">${cat?(cat.emoji?cat.emoji+' ':'')+esc(cat.name):'Sem categoria'}</span>
+    </button>`;
+  }).join('') : `<div class="home-empty-inline">
+    <strong>Nenhuma seção cadastrada</strong>
+    <span>Selecione uma categoria e adicione a primeira seção.</span>
+  </div>`;
+
+  const categoriesHtml=categoryStats.map(({cat,count})=>{
+    const badgeStyle=cat.bg?`background:${cat.bg};color:${cat.color};`:'background:#f0ede8;color:#6b6757;';
+    return `<button class="home-category-card" onclick="selectCat('${cat.id}')">
+      <span class="home-category-icon" style="${badgeStyle}">${cat.emoji||'📁'}</span>
+      <span class="home-category-main">
+        <strong>${esc(cat.name)}</strong>
+        <span>${formatCount(count,'seção','seções')}</span>
+      </span>
+      <span class="home-category-action">Abrir</span>
+    </button>`;
+  }).join('');
+
+  main.innerHTML=`<div class="home-dashboard">
+    <section class="home-hero">
+      <div>
+        <span class="home-kicker">Visão geral</span>
+        <h2>Biblioteca de Seções</h2>
+        <p>${formatCount(totalCategories,'categoria organizada','categorias organizadas')} · ${formatCount(totalComponents,'seção cadastrada','seções cadastradas')}</p>
+      </div>
+      <button class="btn-primary" onclick="openCatModal()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nova categoria
+      </button>
+    </section>
+
+    <section class="home-metrics">
+      <div class="home-metric">
+        <span>Categorias</span>
+        <strong>${totalCategories}</strong>
+        <small>${formatCount(totalCategories,'grupo disponível','grupos disponíveis')}</small>
+      </div>
+      <div class="home-metric">
+        <span>Seções</span>
+        <strong>${totalComponents}</strong>
+        <small>${totalComponents ? 'prontas para reutilizar' : 'nenhuma cadastrada'}</small>
+      </div>
+      <div class="home-metric">
+        <span>Mais usada</span>
+        <strong>${topCategory?esc(topCategory.cat.name):'Nenhuma'}</strong>
+        <small>${topCategory?formatCount(topCategory.count,'seção','seções'):'adicione seções para medir'}</small>
+      </div>
+    </section>
+
+    <section class="home-section">
+      <div class="home-section-head">
+        <div>
+          <span>Atividade</span>
+          <h3>Últimas seções</h3>
+        </div>
+      </div>
+      <div class="home-recent-list">${recentHtml}</div>
+    </section>
+
+    <section class="home-section">
+      <div class="home-section-head">
+        <div>
+          <span>Acesso rápido</span>
+          <h3>Categorias</h3>
+        </div>
+      </div>
+      <div class="home-category-grid">${categoriesHtml}</div>
+    </section>
+  </div>`;
+}
+
 function renderCards(){
   const q=document.getElementById('searchInput').value.toLowerCase();
   const cat=db.categories.find(c=>c.id===activeCatId);
   const main=document.getElementById('mainContent');
 
   if(!activeCatId){
-    main.innerHTML=`<div class="empty-state">
-      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      <h3>Selecione uma categoria</h3>
-      <p>Crie categorias na barra lateral e adicione suas seções.</p>
-    </div>`;
-    document.getElementById('pageTitle').textContent='Biblioteca de Seções';
-    document.getElementById('pageCount').textContent='';
+    renderHome(main);
     return;
   }
 
